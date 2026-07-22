@@ -2,54 +2,953 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Student Performance Evaluation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Performance Evaluator</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#050508;color:#e2e8f0;font-family:system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
-.card{background:#13131f;border:1px solid #1e1e35;border-radius:16px;padding:2rem;max-width:480px;width:100%;box-shadow:0 0 40px #00d4ff11}
-.badge{display:inline-block;background:#00d4ff15;border:1px solid #00d4ff33;color:#00d4ff;border-radius:999px;padding:.25rem .75rem;font-size:.75rem;margin-bottom:1rem}
-h1{font-size:1.5rem;font-weight:800;margin-bottom:.4rem;background:linear-gradient(135deg,#00d4ff,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:#64748b;font-size:.875rem;margin-bottom:1.5rem}
-label{display:block;font-size:.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem}
-input,select{width:100%;background:#0e0e16;border:1px solid #1e1e35;border-radius:8px;padding:.6rem .8rem;color:#e2e8f0;font-size:.875rem;margin-bottom:.9rem;outline:none}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
-button{width:100%;padding:.85rem;background:#00d4ff;color:#050508;font-weight:700;font-size:.9rem;border:none;border-radius:8px;cursor:pointer;margin-top:.25rem}
-button:hover{background:#00b8d9}
-#result{display:none;margin-top:1.5rem;background:#0e0e16;border:1px solid #00d4ff22;border-radius:10px;padding:1.25rem;text-align:center}
-.score{font-size:2.5rem;font-weight:800;color:#00d4ff;margin:.5rem 0}
-.grade{font-size:1rem;color:#94a3b8}
+  /* ---------------------------------------------------------------
+     Design tokens — "gradebook / academic ledger" system.
+     Dark = ink & chalk. Light = sage paper & indigo ink.
+     Grade colors are a fixed, reserved ordinal scale (A→F) and are
+     never the only signal — the letter itself always ships with them.
+  ----------------------------------------------------------------*/
+  :root,
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #10121a;
+    --surface: #1a1d29;
+    --surface-2: #222634;
+    --surface-inset: #14161f;
+    --ink: #f1efe6;
+    --ink-secondary: #b7b4a8;
+    --ink-muted: #7c8090;
+    --rule: #2a2e3c;
+    --rule-strong: #383d4e;
+    --indigo: #7c8ce0;
+    --indigo-track: #262c4a;
+    --indigo-strong: #4c5fc7;
+    --gold: #d9ae55;
+    --btn-bg: #4c5fc7;
+    --btn-bg-hover: #5b6dd9;
+    --btn-text: #ffffff;
+    --shadow: 0 20px 50px -20px rgba(0,0,0,0.6);
+    --grade-a: #4fbe85;
+    --grade-b: #a3c766;
+    --grade-c: #e0b65b;
+    --grade-d: #e08f5a;
+    --grade-f: #e07268;
+    --danger: #e5867c;
+    --danger-bg: #2c1a1c;
+    --danger-border: #4a2529;
+  }
+  html[data-theme="light"] {
+    color-scheme: light;
+    --bg: #e9ece3;
+    --surface: #f7f8f3;
+    --surface-2: #eef0e6;
+    --surface-inset: #e3e6da;
+    --ink: #20242b;
+    --ink-secondary: #4c5160;
+    --ink-muted: #767c8c;
+    --rule: #d9dccf;
+    --rule-strong: #c6cab8;
+    --indigo: #3b4c9e;
+    --indigo-track: #dde2f2;
+    --indigo-strong: #3b4c9e;
+    --gold: #a97a2a;
+    --btn-bg: #3b4c9e;
+    --btn-bg-hover: #2f3f88;
+    --btn-text: #ffffff;
+    --shadow: 0 20px 50px -24px rgba(32,36,43,0.28);
+    --grade-a: #2f8f5f;
+    --grade-b: #74902f;
+    --grade-c: #b1802a;
+    --grade-d: #b56a2e;
+    --grade-f: #ac4a41;
+    --danger: #a13c34;
+    --danger-bg: #fbeceb;
+    --danger-border: #ecc7c3;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    transition: background-color .35s ease, color .35s ease;
+  }
+  h1, h2 { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; }
+
+  .app {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 1.75rem 1.25rem 3rem;
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    animation: fade-in-down .5s ease both;
+  }
+  .brand { display: flex; align-items: center; gap: .9rem; }
+  .brand-mark {
+    flex-shrink: 0;
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    background: linear-gradient(150deg, var(--indigo-strong), var(--indigo));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow);
+  }
+  .brand-mark svg { width: 24px; height: 24px; }
+  .brand h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.15; margin: 0 0 .2rem; letter-spacing: -.01em; }
+  .tagline { margin: 0; font-size: .82rem; color: var(--ink-muted); max-width: 46ch; }
+
+  .theme-toggle {
+    flex-shrink: 0;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background-color .3s ease, transform .2s ease, border-color .3s ease;
+  }
+  .theme-toggle:hover { transform: translateY(-1px); border-color: var(--indigo); }
+  .theme-toggle svg { width: 19px; height: 19px; }
+  .theme-toggle .icon-moon { display: none; }
+  html[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+  html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (min-width: 960px) {
+    .layout { grid-template-columns: 1.12fr .88fr; }
+    .results-panel { position: sticky; top: 1.5rem; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    animation: fade-in-up .5s ease both;
+    animation-delay: .05s;
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .results-panel { animation-delay: .12s; }
+
+  /* ---------- Form ---------- */
+  fieldset.field-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 1.4rem;
+  }
+  fieldset.field-group + fieldset.field-group { margin-top: 1.4rem; }
+  legend {
+    font-family: Georgia, "Iowan Old Style", serif;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--ink-muted);
+    padding: 0 0 .55rem;
+    width: 100%;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 1rem;
+  }
+  .field { margin-bottom: 1rem; }
+  .field:last-child { margin-bottom: 0; }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .85rem;
+  }
+  label {
+    display: block;
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    margin-bottom: .4rem;
+  }
+  .field-label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: .35rem;
+  }
+  .field-label-row label { margin-bottom: 0; }
+  .field-label-row output {
+    font-variant-numeric: tabular-nums;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--indigo);
+    background: var(--indigo-track);
+    border-radius: 999px;
+    padding: .1rem .55rem;
+  }
+
+  select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--surface-inset);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%237c8090' stroke-width='2'%3E%3Cpath d='M5 8l5 5 5-5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .75rem center;
+    background-size: 16px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 9px;
+    color: var(--ink);
+    font-size: .85rem;
+    padding: .6rem 2.1rem .6rem .8rem;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  select:hover { border-color: var(--indigo); }
+  select:focus-visible, input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--indigo) 0%, var(--indigo) var(--fill, 0%), var(--surface-inset) var(--fill, 0%), var(--surface-inset) 100%);
+    outline: none;
+    margin: .3rem 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--btn-bg);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--indigo);
+    cursor: pointer;
+    transition: transform .15s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--btn-bg);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--indigo);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track {
+    height: 6px; border-radius: 999px; background: var(--surface-inset);
+  }
+  input[type="range"]::-moz-range-progress {
+    height: 6px; border-radius: 999px; background: var(--indigo);
+  }
+  .range-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: .65rem;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: .15rem;
+  }
+
+  /* ---------- Switches ---------- */
+  .switch-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .switch-field label { margin-bottom: 0; }
+  .switch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .7rem 1rem;
+    margin-top: 1rem;
+  }
+  .switch {
+    flex-shrink: 0;
+    width: 42px; height: 24px;
+    border-radius: 999px;
+    border: 1px solid var(--rule-strong);
+    background: var(--surface-inset);
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color .25s ease, border-color .25s ease;
+  }
+  .switch-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--ink-muted);
+    transition: transform .25s cubic-bezier(.4,0,.2,1), background-color .25s ease;
+  }
+  .switch[aria-checked="true"] { background: var(--indigo-strong); border-color: var(--indigo-strong); }
+  .switch[aria-checked="true"] .switch-thumb { transform: translateX(18px); background: #fff; }
+
+  /* ---------- Predict button ---------- */
+  .predict-btn {
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: .95rem 1rem;
+    border: none;
+    border-radius: 11px;
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    font-size: .92rem;
+    font-weight: 700;
+    letter-spacing: .01em;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .6rem;
+    transition: background-color .2s ease, transform .12s ease, box-shadow .2s ease;
+    box-shadow: 0 12px 24px -12px var(--indigo-strong);
+  }
+  .predict-btn:hover { background: var(--btn-bg-hover); transform: translateY(-1px); }
+  .predict-btn:active { transform: translateY(0); }
+  .predict-btn:disabled { cursor: progress; opacity: .85; }
+  .btn-spinner {
+    display: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    animation: spin .7s linear infinite;
+  }
+  .predict-btn.is-loading .btn-spinner { display: inline-block; }
+  .predict-btn.is-loading .btn-label { opacity: .85; }
+
+  .error-msg {
+    margin-top: .9rem;
+    padding: .7rem .9rem;
+    border-radius: 9px;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+    font-size: .8rem;
+    line-height: 1.4;
+  }
+
+  /* ---------- Results panel ---------- */
+  .results-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--ink-muted);
+  }
+  .results-empty svg { width: 64px; height: 64px; opacity: .5; margin-bottom: 1rem; }
+  .results-empty p { font-size: .85rem; max-width: 30ch; margin: 0 auto; }
+
+  .results-content h2 {
+    font-size: .95rem;
+    font-weight: 700;
+    margin: 0 0 .9rem;
+  }
+
+  .gauge-wrap { text-align: center; }
+  .gauge-wrap svg { width: 100%; max-width: 260px; height: auto; }
+  #gaugeArc {
+    transition: stroke-dashoffset 1s cubic-bezier(.16,1,.3,1), stroke .3s ease;
+  }
+
+  .gauge-readout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    margin-top: -.6rem;
+    margin-bottom: 1.1rem;
+  }
+  .gpa-block { text-align: right; }
+  .gpa-value {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .gpa-sub {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--ink-muted);
+    margin-top: .25rem;
+  }
+  .grade-stamp {
+    flex-shrink: 0;
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    border: 3px dashed var(--grade-c);
+    color: var(--grade-c);
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, serif;
+    font-weight: 800;
+    font-size: 1.6rem;
+    transform: rotate(-8deg);
+    transition: border-color .3s ease, color .3s ease, transform .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .grade-desc {
+    text-align: center;
+    font-size: .78rem;
+    color: var(--ink-secondary);
+    margin: -.5rem 0 1.3rem;
+  }
+
+  .percentile-block { margin-bottom: 1.5rem; }
+  .percentile-text {
+    font-size: .82rem;
+    color: var(--ink-secondary);
+    margin-bottom: .5rem;
+  }
+  .percentile-text strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .meter {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--indigo-track);
+    overflow: hidden;
+  }
+  .meter-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--indigo-strong), var(--indigo));
+    transition: width 1s cubic-bezier(.16,1,.3,1);
+  }
+
+  .importance-list { list-style: none; margin: 0; padding: 0; }
+  .importance-row {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr 3.2rem;
+    align-items: center;
+    gap: .6rem;
+    padding: .4rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .importance-row:last-child { border-bottom: none; }
+  .importance-feature {
+    font-size: .76rem;
+    color: var(--ink-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .importance-track {
+    height: 14px;
+    border-radius: 4px;
+    background: var(--indigo-track);
+    overflow: hidden;
+  }
+  .importance-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    background: var(--indigo);
+    transition: width .9s cubic-bezier(.16,1,.3,1);
+  }
+  .importance-value {
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+    text-align: right;
+  }
+
+  /* ---------- Model performance footer ---------- */
+  .model-card {
+    margin-top: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 1.1rem 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+    animation: fade-in-up .5s ease both;
+    animation-delay: .18s;
+  }
+  .model-card-title {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--ink-muted);
+    margin-right: auto;
+  }
+  .stat-tile { display: flex; flex-direction: column; gap: .15rem; }
+  .stat-label { font-size: .72rem; color: var(--ink-muted); }
+  .stat-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* ---------- Motion ---------- */
+  @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fade-in-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .field-row { grid-template-columns: 1fr; }
+    .switch-grid { grid-template-columns: 1fr; }
+    .importance-row { grid-template-columns: 6.2rem 1fr 2.8rem; }
+    .gpa-value { font-size: 2.1rem; }
+  }
 </style>
 </head>
 <body>
-<div class="card">
-  <span class="badge">📚 Academic AI</span>
-  <h1>Student Performance Evaluation</h1>
-  <p class="sub">Predict performance index using lifestyle and academic metrics.</p>
-  <div class="grid2">
-    <div><label>Sleep Hours Per Night</label><input id="sleep" type="number" value="7" min="3" max="12" step="0.5"></div>
-    <div><label>Daily Study Hours</label><input id="study" type="number" value="4" min="0" max="12" step="0.5"></div>
-  </div>
-  <label>Monthly Absences</label>
-  <input id="absences" type="number" value="3" min="0" max="30">
-  <div class="grid2">
-    <div><label>Stress Level</label><select id="stress"><option value="0">Low</option><option value="1" selected>Medium</option><option value="2">High</option></select></div>
-    <div><label>Internet Quality</label><select id="internet"><option value="0">Poor</option><option value="1" selected>Average</option><option value="2">Good</option></select></div>
-  </div>
-  <button onclick="predict()">Evaluate Performance</button>
-  <div id="result">
-    <p style="color:#64748b;font-size:.8rem">Performance Index</p>
-    <div class="score" id="perf-val">-</div>
-    <div class="grade" id="grade-val">-</div>
-  </div>
-</div>
 <script>
-async function predict(){
-  const r=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sleep_hours:+document.getElementById('sleep').value,study_hours:+document.getElementById('study').value,absences:+document.getElementById('absences').value,stress_level:+document.getElementById('stress').value,internet:+document.getElementById('internet').value})});
-  const j=await r.json();
-  document.getElementById('perf-val').textContent=j.performance+'/100';
-  document.getElementById('grade-val').textContent='Letter Grade: '+j.grade;
-  document.getElementById('result').style.display='block';
-}
+  // Set theme before first paint to avoid a flash of the wrong theme.
+  (function () {
+    var stored = null;
+    try { stored = localStorage.getItem('spe-theme'); } catch (e) {}
+    var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M3 5.5C3 4.67 3.67 4 4.5 4H11v16H4.5A1.5 1.5 0 0 1 3 18.5v-13Z" fill="#fff" opacity=".92"/>
+          <path d="M21 5.5c0-.83-.67-1.5-1.5-1.5H13v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" fill="#fff" opacity=".65"/>
+        </svg>
+      </span>
+      <div>
+        <h1>Student Performance Evaluator</h1>
+        <p class="tagline">Predict a student's GPA, letter grade and class standing from their profile.</p>
+      </div>
+    </div>
+    <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle light and dark theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.5"/>
+        <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+      </svg>
+    </button>
+  </header>
+
+  <main class="layout">
+    <!-- ===================== FORM ===================== -->
+    <form class="panel form-panel" id="predictForm" novalidate>
+      <fieldset class="field-group">
+        <legend>Demographics</legend>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label for="age">Age</label>
+            <output id="ageVal">17</output>
+          </div>
+          <input type="range" id="age" min="15" max="18" step="1" value="17">
+          <div class="range-scale"><span>15</span><span>16</span><span>17</span><span>18</span></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="gender">Gender</label>
+            <select id="gender">
+              <option value="0">Male</option>
+              <option value="1">Female</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ethnicity">Ethnicity</label>
+            <select id="ethnicity">
+              <option value="0">Caucasian</option>
+              <option value="1">African American</option>
+              <option value="2">Asian</option>
+              <option value="3">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="parentalEducation">Parental Education</label>
+          <select id="parentalEducation">
+            <option value="0">None</option>
+            <option value="1">High School</option>
+            <option value="2" selected>Some College</option>
+            <option value="3">Bachelor's</option>
+            <option value="4">Higher</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset class="field-group">
+        <legend>Academic Habits</legend>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label for="studyTime">Study Time Weekly</label>
+            <output id="studyTimeVal">12.5 hrs</output>
+          </div>
+          <input type="range" id="studyTime" min="0" max="20" step="0.5" value="12.5">
+        </div>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label for="absences">Absences</label>
+            <output id="absencesVal">5 days</output>
+          </div>
+          <input type="range" id="absences" min="0" max="29" step="1" value="5">
+        </div>
+
+        <div class="field switch-field">
+          <label for="tutoring">Tutoring</label>
+          <button type="button" class="switch" id="tutoring" role="switch" aria-checked="false"><span class="switch-thumb"></span></button>
+        </div>
+      </fieldset>
+
+      <fieldset class="field-group">
+        <legend>Support &amp; Activities</legend>
+
+        <div class="field">
+          <label for="parentalSupport">Parental Support</label>
+          <select id="parentalSupport">
+            <option value="0">None</option>
+            <option value="1">Low</option>
+            <option value="2" selected>Moderate</option>
+            <option value="3">High</option>
+            <option value="4">Very High</option>
+          </select>
+        </div>
+
+        <div class="switch-grid">
+          <div class="field switch-field">
+            <label for="extracurricular">Extracurricular</label>
+            <button type="button" class="switch" id="extracurricular" role="switch" aria-checked="false"><span class="switch-thumb"></span></button>
+          </div>
+          <div class="field switch-field">
+            <label for="sports">Sports</label>
+            <button type="button" class="switch" id="sports" role="switch" aria-checked="true"><span class="switch-thumb"></span></button>
+          </div>
+          <div class="field switch-field">
+            <label for="music">Music</label>
+            <button type="button" class="switch" id="music" role="switch" aria-checked="false"><span class="switch-thumb"></span></button>
+          </div>
+          <div class="field switch-field">
+            <label for="volunteering">Volunteering</label>
+            <button type="button" class="switch" id="volunteering" role="switch" aria-checked="false"><span class="switch-thumb"></span></button>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="predict-btn" id="predictBtn">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <span class="btn-label">Predict Performance</span>
+      </button>
+      <p class="error-msg" id="errorMsg" role="alert" hidden></p>
+    </form>
+
+    <!-- ===================== RESULTS ===================== -->
+    <aside class="panel results-panel" id="resultsPanel" aria-live="polite">
+      <div class="results-empty" id="resultsEmpty">
+        <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M8 44a24 24 0 0 1 48 0"/>
+          <path d="M32 44V20M32 44l12-10" stroke-dasharray="3 4"/>
+        </svg>
+        <p>Fill in the student profile and predict to see the report.</p>
+      </div>
+
+      <div class="results-content" id="resultsContent" hidden>
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 200 125" aria-hidden="true">
+            <path d="M25,110 A75,75 0 0 1 175,110" fill="none" stroke="var(--indigo-track)" stroke-width="12" stroke-linecap="round"/>
+            <path id="gaugeArc" d="M25,110 A75,75 0 0 1 175,110" fill="none" stroke="var(--indigo)" stroke-width="12" stroke-linecap="round"/>
+            <g stroke="var(--rule-strong)" stroke-width="2">
+              <line x1="25" y1="110" x2="17" y2="110"/>
+              <line x1="46.97" y1="56.97" x2="41.31" y2="51.31"/>
+              <line x1="100" y1="35" x2="100" y2="27"/>
+              <line x1="153.03" y1="56.97" x2="158.69" y2="51.31"/>
+              <line x1="175" y1="110" x2="183" y2="110"/>
+            </g>
+            <g fill="var(--ink-muted)" font-size="10" font-family="-apple-system, Segoe UI, sans-serif" text-anchor="middle">
+              <text x="10" y="114">0</text>
+              <text x="36.36" y="46.36">1</text>
+              <text x="100" y="20">2</text>
+              <text x="163.64" y="46.36">3</text>
+              <text x="190" y="114">4</text>
+            </g>
+          </svg>
+          <div class="gauge-readout">
+            <div class="gpa-block">
+              <div class="gpa-value" id="gpaValue">0.00</div>
+              <div class="gpa-sub">Predicted GPA</div>
+            </div>
+            <div class="grade-stamp" id="gradeStamp">-</div>
+          </div>
+          <p class="grade-desc" id="gradeDesc">&nbsp;</p>
+        </div>
+
+        <div class="percentile-block">
+          <p class="percentile-text" id="percentileText">Outperforms <strong id="percentileNum">0</strong>% of the class.</p>
+          <div class="meter"><div class="meter-fill" id="percentileFill"></div></div>
+        </div>
+
+        <div class="importance-block">
+          <h2>What drove this prediction</h2>
+          <ul class="importance-list" id="importanceList"></ul>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="model-card">
+    <span class="model-card-title">Model Performance</span>
+    <div class="stat-tile">
+      <span class="stat-label">R&sup2; Score</span>
+      <span class="stat-value" id="modelR2">&ndash;</span>
+    </div>
+    <div class="stat-tile">
+      <span class="stat-label">Classification Accuracy</span>
+      <span class="stat-value" id="modelAcc">&ndash;</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- Theme toggle ---------------- */
+  var root = document.documentElement;
+  var themeToggle = document.getElementById('themeToggle');
+  themeToggle.addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('spe-theme', next); } catch (e) {}
+  });
+
+  /* ---------------- Range inputs ---------------- */
+  function bindRange(id, outputId, format) {
+    var input = document.getElementById(id);
+    var output = document.getElementById(outputId);
+    function update() {
+      var min = parseFloat(input.min), max = parseFloat(input.max), val = parseFloat(input.value);
+      var pct = ((val - min) / (max - min)) * 100;
+      input.style.setProperty('--fill', pct + '%');
+      output.textContent = format(val);
+    }
+    input.addEventListener('input', update);
+    update();
+  }
+  bindRange('age', 'ageVal', function (v) { return v.toFixed(0); });
+  bindRange('studyTime', 'studyTimeVal', function (v) { return v.toFixed(1) + ' hrs'; });
+  bindRange('absences', 'absencesVal', function (v) { return v.toFixed(0) + (v == 1 ? ' day' : ' days'); });
+
+  /* ---------------- Switches ---------------- */
+  var switchIds = ['tutoring', 'extracurricular', 'sports', 'music', 'volunteering'];
+  switchIds.forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('click', function () {
+      var on = el.getAttribute('aria-checked') === 'true';
+      el.setAttribute('aria-checked', on ? 'false' : 'true');
+    });
+  });
+  function switchValue(id) {
+    return document.getElementById(id).getAttribute('aria-checked') === 'true' ? 1 : 0;
+  }
+
+  /* ---------------- Grade meta ---------------- */
+  var GRADE_META = {
+    A: { desc: 'Excellent standing', varName: '--grade-a' },
+    B: { desc: 'Above average', varName: '--grade-b' },
+    C: { desc: 'Average standing', varName: '--grade-c' },
+    D: { desc: 'Below average — at risk', varName: '--grade-d' },
+    F: { desc: 'Failing — needs support', varName: '--grade-f' }
+  };
+  var GRADE_BY_CLASS = ['A', 'B', 'C', 'D', 'F'];
+
+  function resolveGrade(data) {
+    var letter = (data.predicted_grade_label || '').toString().trim().toUpperCase();
+    if (!GRADE_META[letter]) {
+      letter = GRADE_BY_CLASS[data.predicted_grade_class] || 'C';
+    }
+    var meta = GRADE_META[letter] || GRADE_META.C;
+    return { letter: letter, desc: meta.desc, color: 'var(' + meta.varName + ')' };
+  }
+
+  /* ---------------- Feature name labels ---------------- */
+  var FEATURE_LABELS = {
+    Age: 'Age',
+    Gender: 'Gender',
+    Ethnicity: 'Ethnicity',
+    ParentalEducation: 'Parental Education',
+    StudyTimeWeekly: 'Study Time',
+    Absences: 'Absences',
+    Tutoring: 'Tutoring',
+    ParentalSupport: 'Parental Support',
+    Extracurricular: 'Extracurricular',
+    Sports: 'Sports',
+    Music: 'Music',
+    Volunteering: 'Volunteering'
+  };
+  function featureLabel(key) {
+    if (FEATURE_LABELS[key]) return FEATURE_LABELS[key];
+    return String(key).replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+
+  /* ---------------- Gauge geometry ---------------- */
+  var gaugeArc = document.getElementById('gaugeArc');
+  var GAUGE_C = Math.PI * 75;
+  gaugeArc.style.strokeDasharray = GAUGE_C;
+  gaugeArc.style.strokeDashoffset = GAUGE_C;
+
+  /* ---------------- Render results ---------------- */
+  var resultsEmpty = document.getElementById('resultsEmpty');
+  var resultsContent = document.getElementById('resultsContent');
+
+  function renderResults(data) {
+    resultsEmpty.hidden = true;
+    resultsContent.hidden = false;
+
+    var gpa = Number(data.predicted_gpa) || 0;
+    var fraction = Math.max(0, Math.min(1, gpa / 4));
+    var grade = resolveGrade(data);
+
+    document.getElementById('gpaValue').textContent = gpa.toFixed(2);
+    var stamp = document.getElementById('gradeStamp');
+    stamp.textContent = grade.letter;
+    stamp.style.borderColor = grade.color;
+    stamp.style.color = grade.color;
+    document.getElementById('gradeDesc').textContent = grade.desc;
+    gaugeArc.style.stroke = grade.color;
+
+    // Animate the arc on the next frame so the transition is visible.
+    requestAnimationFrame(function () {
+      gaugeArc.style.strokeDashoffset = GAUGE_C * (1 - fraction);
+    });
+
+    var percentile = Math.max(0, Math.min(100, Number(data.percentile) || 0));
+    document.getElementById('percentileNum').textContent = percentile.toFixed(1);
+    requestAnimationFrame(function () {
+      document.getElementById('percentileFill').style.width = percentile + '%';
+    });
+
+    var list = document.getElementById('importanceList');
+    list.innerHTML = '';
+    var items = Array.isArray(data.feature_importance) ? data.feature_importance : [];
+    items = items.filter(function (it) { return it && typeof it === 'object' && 'feature' in it && 'importance' in it; });
+    items = items.slice().sort(function (a, b) { return Number(b.importance) - Number(a.importance); });
+    var maxImportance = items.reduce(function (m, it) { return Math.max(m, Number(it.importance) || 0); }, 0) || 1;
+
+    items.forEach(function (it) {
+      var value = Number(it.importance) || 0;
+      var li = document.createElement('li');
+      li.className = 'importance-row';
+      var featureSpan = document.createElement('span');
+      featureSpan.className = 'importance-feature';
+      featureSpan.textContent = featureLabel(it.feature);
+      var track = document.createElement('span');
+      track.className = 'importance-track';
+      var fill = document.createElement('span');
+      fill.className = 'importance-fill';
+      track.appendChild(fill);
+      var valueSpan = document.createElement('span');
+      valueSpan.className = 'importance-value';
+      valueSpan.textContent = (value * 100).toFixed(1) + '%';
+      li.appendChild(featureSpan);
+      li.appendChild(track);
+      li.appendChild(valueSpan);
+      list.appendChild(li);
+      requestAnimationFrame(function () {
+        fill.style.width = ((value / maxImportance) * 100) + '%';
+      });
+    });
+
+    document.getElementById('modelR2').textContent = (Number(data.model_r2) || 0).toFixed(2);
+    document.getElementById('modelAcc').textContent = ((Number(data.model_accuracy) || 0) * 100).toFixed(1) + '%';
+  }
+
+  /* ---------------- Loading / error state ---------------- */
+  var predictBtn = document.getElementById('predictBtn');
+  var errorMsg = document.getElementById('errorMsg');
+  var form = document.getElementById('predictForm');
+
+  function setLoading(isLoading) {
+    predictBtn.disabled = isLoading;
+    predictBtn.classList.toggle('is-loading', isLoading);
+    form.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+  }
+  function showError(message) {
+    errorMsg.textContent = message;
+    errorMsg.hidden = false;
+  }
+  function hideError() {
+    errorMsg.hidden = true;
+  }
+
+  /* ---------------- Submit ---------------- */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideError();
+    setLoading(true);
+
+    var payload = {
+      age: Number(document.getElementById('age').value),
+      gender: Number(document.getElementById('gender').value),
+      ethnicity: Number(document.getElementById('ethnicity').value),
+      parental_education: Number(document.getElementById('parentalEducation').value),
+      study_time_weekly: Number(document.getElementById('studyTime').value),
+      absences: Number(document.getElementById('absences').value),
+      tutoring: switchValue('tutoring'),
+      parental_support: Number(document.getElementById('parentalSupport').value),
+      extracurricular: switchValue('extracurricular'),
+      sports: switchValue('sports'),
+      music: switchValue('music'),
+      volunteering: switchValue('volunteering')
+    };
+
+    fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) {
+        if (!res.ok) { throw new Error('Server responded with ' + res.status); }
+        return res.json();
+      })
+      .then(function (data) {
+        renderResults(data);
+      })
+      .catch(function () {
+        showError("We couldn't reach the prediction model. Check your connection and try again.");
+      })
+      .finally(function () {
+        setLoading(false);
+      });
+  });
+})();
 </script>
 </body>
 </html>
